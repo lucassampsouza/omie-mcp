@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 from .client import OmieClient
 from .tools import fornecedores, contas_pagar, contas_receber, lancamentos_cc, contas_correntes, fluxo_caixa
 
+# Busca .env no diretório atual e em ~/.config/omie-mcp/ (útil para uso via uvx)
 load_dotenv()
+load_dotenv(os.path.expanduser("~/.config/omie-mcp/.env"))
 
 
 @asynccontextmanager
