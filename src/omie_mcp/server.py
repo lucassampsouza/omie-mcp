@@ -1,7 +1,6 @@
 """MCP Server para integração com o OMIE ERP."""
 
 import os
-import asyncio
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
@@ -9,6 +8,7 @@ from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
 from .client import OmieClient
+from .tools import fornecedores, contas_pagar, contas_receber, lancamentos_cc, contas_correntes, fluxo_caixa
 
 load_dotenv()
 
@@ -26,12 +26,22 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
 mcp = FastMCP(
     name="omie-mcp",
-    instructions="Servidor MCP para integração com o ERP OMIE. Permite consultar e gerenciar clientes, pedidos, financeiro e outros recursos do OMIE.",
+    instructions=(
+        "Servidor MCP para controle financeiro no ERP OMIE. "
+        "Permite gerenciar: fornecedores, contas a pagar, contas a receber, "
+        "lançamentos bancários, extrato de contas correntes e fluxo de caixa. "
+        "Datas devem ser informadas no formato dd/mm/aaaa."
+    ),
     lifespan=lifespan,
 )
 
-
-# ─── Tools serão adicionadas aqui conforme a documentação da API ──────────────
+# Registra todas as ferramentas financeiras
+fornecedores.register(mcp)
+contas_pagar.register(mcp)
+contas_receber.register(mcp)
+lancamentos_cc.register(mcp)
+contas_correntes.register(mcp)
+fluxo_caixa.register(mcp)
 
 
 def main():
