@@ -160,10 +160,11 @@ chmod +x ~/omie-mcp-run.sh
 
 | Ferramenta | Descrição |
 |---|---|
-| `listar_fornecedores` | Lista fornecedores com filtros por nome ou CNPJ |
+| `listar_fornecedores` | Lista fornecedores com filtros por nome, CNPJ, código OMIE ou integração |
 | `consultar_fornecedor` | Consulta detalhes de um fornecedor pelo código ou CNPJ |
-| `incluir_fornecedor` | Cadastra um novo fornecedor |
+| `incluir_fornecedor` | Cadastra um novo fornecedor, incluindo dados fiscais, contato e bancários |
 | `alterar_fornecedor` | Atualiza dados de um fornecedor existente |
+| `upsert_fornecedor` | Cadastra ou atualiza um fornecedor pelo CNPJ/CPF |
 
 ### Contas a Pagar
 
