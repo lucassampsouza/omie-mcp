@@ -209,9 +209,9 @@ chmod +x ~/omie-mcp-run.sh
 | Ferramenta | Descrição |
 |---|---|
 | `consultar_fluxo_caixa` | Previsto vs realizado por categoria em um mês |
-| `obter_resumo_financeiro` | Resumo consolidado do período |
-| `listar_titulos_em_aberto` | Lista todos os títulos não liquidados |
-| `pesquisar_lancamentos_financeiros` | Pesquisa unificada (pagar + receber + bancário) |
+| `obter_resumo_financeiro` | Resumo consolidado numa data de referência |
+| `listar_titulos_em_aberto` | Títulos não liquidados (a pagar **ou** a receber) |
+| `pesquisar_lancamentos_financeiros` | Pesquisa unificada (contas a pagar + a receber) |
 
 ---
 

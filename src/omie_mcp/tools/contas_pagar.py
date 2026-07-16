@@ -40,7 +40,9 @@ def register(mcp: FastMCP) -> None:
             params["filtrar_cliente"] = filtrar_cliente
         if filtrar_conta_corrente:
             params["filtrar_conta_corrente"] = filtrar_conta_corrente
-        return await client.call("financas/contapagar/", "ListarContasPagar", params)
+        return await client.call(
+            "financas/contapagar/", "ListarContasPagar", params, lista_vazia_ok=True
+        )
 
     @mcp.tool()
     async def consultar_conta_pagar(
@@ -120,8 +122,10 @@ def register(mcp: FastMCP) -> None:
             "multa": multa,
             "conciliar_documento": conciliar_documento,
         }
+        # A baixa identifica o título por [codigo_lancamento], não por
+        # [codigo_lancamento_omie] (esse é o nome usado só nos métodos de chave).
         if codigo_lancamento_omie:
-            params["codigo_lancamento_omie"] = codigo_lancamento_omie
+            params["codigo_lancamento"] = codigo_lancamento_omie
         if codigo_lancamento_integracao:
             params["codigo_lancamento_integracao"] = codigo_lancamento_integracao
         if observacao:
@@ -131,16 +135,19 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool()
     async def cancelar_pagamento_conta_pagar(
         ctx: Context,
-        codigo_lancamento_omie: Annotated[Optional[int], "Código do lançamento no OMIE"] = None,
-        codigo_lancamento_integracao: Annotated[Optional[str], "Código de integração do lançamento"] = None,
+        codigo_baixa: Annotated[Optional[int], "Código da baixa/pagamento no OMIE"] = None,
+        codigo_baixa_integracao: Annotated[Optional[str], "Código de integração da baixa"] = None,
     ) -> dict:
-        """Cancela/estorna o pagamento de uma conta a pagar, revertendo a baixa."""
+        """
+        Cancela/estorna o pagamento de uma conta a pagar, revertendo a baixa.
+        Identifica a baixa (retornada por lancar_pagamento), não o título.
+        """
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {}
-        if codigo_lancamento_omie:
-            params["codigo_lancamento_omie"] = codigo_lancamento_omie
-        if codigo_lancamento_integracao:
-            params["codigo_lancamento_integracao"] = codigo_lancamento_integracao
+        if codigo_baixa:
+            params["codigo_baixa"] = codigo_baixa
+        if codigo_baixa_integracao:
+            params["codigo_baixa_integracao"] = codigo_baixa_integracao
         return await client.call("financas/contapagar/", "CancelarPagamento", params)
 
     @mcp.tool()

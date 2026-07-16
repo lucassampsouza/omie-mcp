@@ -18,6 +18,7 @@ def register(mcp: FastMCP) -> None:
             "geral/contacorrente/",
             "ListarResumoContasCorrentes",
             {"pagina": pagina, "registros_por_pagina": registros_por_pagina},
+            lista_vazia_ok=True,
         )
 
     @mcp.tool()
@@ -47,8 +48,15 @@ def register(mcp: FastMCP) -> None:
         """
         Consulta o extrato bancário de uma conta corrente em um período.
         Retorna todos os lançamentos e o saldo do período.
+        Informe codigo_conta_corrente ou codigo_integracao_conta — o OMIE exige um deles.
+        Use listar_contas_correntes para descobrir o código (nCodCC).
         """
         client = ctx.request_context.lifespan_context["omie"]
+        if not codigo_conta_corrente and not codigo_integracao_conta:
+            raise ValueError(
+                "Informe codigo_conta_corrente ou codigo_integracao_conta. "
+                "Use listar_contas_correntes para obter o código."
+            )
         params: dict = {
             "dPeriodoInicial": data_inicio,
             "dPeriodoFinal": data_fim,

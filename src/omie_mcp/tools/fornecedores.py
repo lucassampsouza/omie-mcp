@@ -20,13 +20,19 @@ def register(mcp: FastMCP) -> None:
         params: dict = {
             "pagina": pagina,
             "registros_por_pagina": registros_por_pagina,
-            "apenas_fornecedor": apenas_fornecedor,
         }
+        filtro: dict = {}
+        # No OMIE não existe flag de fornecedor no cadastro: a distinção é feita
+        # pela tag "Fornecedor" aplicada ao cliente.
+        if apenas_fornecedor == "S":
+            filtro["tags"] = [{"tag": "Fornecedor"}]
         if filtrar_por_nome:
-            params["clientesFiltro"] = {"razao_social": filtrar_por_nome}
+            filtro["razao_social"] = filtrar_por_nome
         if filtrar_por_cnpj:
-            params.setdefault("clientesFiltro", {})["cnpj_cpf"] = filtrar_por_cnpj
-        return await client.call("geral/clientes/", "ListarClientes", params)
+            filtro["cnpj_cpf"] = filtrar_por_cnpj
+        if filtro:
+            params["clientesFiltro"] = filtro
+        return await client.call("geral/clientes/", "ListarClientes", params, lista_vazia_ok=True)
 
     @mcp.tool()
     async def consultar_fornecedor(
