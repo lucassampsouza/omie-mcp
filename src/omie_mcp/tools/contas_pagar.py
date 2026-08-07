@@ -2,6 +2,7 @@
 
 from typing import Annotated, Optional
 from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
 
 
 def register(mcp: FastMCP) -> None:
@@ -15,14 +16,43 @@ def register(mcp: FastMCP) -> None:
             Optional[str],
             "Status: CANCELADO | PAGO | LIQUIDADO | EMABERTO | PAGTO_PARCIAL | ATRASADO | AVENCER",
         ] = None,
-        filtrar_por_data_de: Annotated[Optional[str], "Data de vencimento inicial (dd/mm/aaaa)"] = None,
-        filtrar_por_data_ate: Annotated[Optional[str], "Data de vencimento final (dd/mm/aaaa)"] = None,
+        # Estes filtros usam Field(description=...) — uma str simples dentro de
+        # Annotated é ignorada pelo pydantic e não chega ao schema da tool.
+        filtrar_por_data_de: Annotated[
+            Optional[str],
+            Field(
+                description="Data de alteração inicial (dd/mm/aaaa) — filtra pela data "
+                "de alteração do registro (info.dAlt), NÃO pelo vencimento"
+            ),
+        ] = None,
+        filtrar_por_data_ate: Annotated[
+            Optional[str],
+            Field(
+                description="Data de alteração final (dd/mm/aaaa) — filtra pela data "
+                "de alteração do registro (info.dAlt), NÃO pelo vencimento"
+            ),
+        ] = None,
+        filtrar_por_emissao_de: Annotated[
+            Optional[str], Field(description="Data de emissão inicial (dd/mm/aaaa)")
+        ] = None,
+        filtrar_por_emissao_ate: Annotated[
+            Optional[str], Field(description="Data de emissão final (dd/mm/aaaa)")
+        ] = None,
         filtrar_cliente: Annotated[Optional[int], "Código OMIE do fornecedor"] = None,
         filtrar_conta_corrente: Annotated[Optional[int], "Código da conta corrente"] = None,
         ordenar_por: Annotated[str, "Ordenação: CODIGO | CODIGO_INTEGRACAO | DATA_VENCIMENTO"] = "DATA_VENCIMENTO",
         ordem_descrescente: Annotated[str, "Ordem decrescente: S ou N"] = "N",
     ) -> dict:
-        """Lista contas a pagar com filtros de status, período e fornecedor."""
+        """
+        Lista contas a pagar com filtros de status, fornecedor e período.
+
+        Cuidado com o período: [filtrar_por_data_de/ate] recorta pela data de
+        ALTERAÇÃO do registro (info.dAlt), não pelo vencimento. Para recortar
+        competência, use [filtrar_por_emissao_de/ate].
+
+        A API do OMIE não expõe filtro por data de vencimento nesta chamada —
+        para recortar por vencimento, filtre [data_vencimento] no resultado.
+        """
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {
             "pagina": pagina,
@@ -36,6 +66,10 @@ def register(mcp: FastMCP) -> None:
             params["filtrar_por_data_de"] = filtrar_por_data_de
         if filtrar_por_data_ate:
             params["filtrar_por_data_ate"] = filtrar_por_data_ate
+        if filtrar_por_emissao_de:
+            params["filtrar_por_emissao_de"] = filtrar_por_emissao_de
+        if filtrar_por_emissao_ate:
+            params["filtrar_por_emissao_ate"] = filtrar_por_emissao_ate
         if filtrar_cliente:
             params["filtrar_cliente"] = filtrar_cliente
         if filtrar_conta_corrente:
