@@ -1,10 +1,33 @@
-"""Tools de Contas Correntes e Extrato — endpoints: /geral/contacorrente/ e /financas/extrato/"""
+"""Tools de Contas Correntes e Extrato — endpoints: /geral/contacorrente/, /geral/tipocc/ e /financas/extrato/"""
 
 from typing import Annotated, Optional
 from mcp.server.fastmcp import FastMCP, Context
 
 
 def register(mcp: FastMCP) -> None:
+
+    @mcp.tool()
+    async def listar_tipos_conta_corrente(ctx: Context) -> dict:
+        """
+        Lista os tipos de conta corrente do OMIE — os valores aceitos no campo de
+        tipo ao cadastrar uma conta corrente (ex: CC Conta Corrente, CP Conta
+        Poupança, CR Cartão de Crédito, CX Caixinha).
+
+        Cada item traz `cCodigo` (o valor a usar), `cDescricao` e `cGrupo`, onde o
+        grupo é a família da conta: CB (bancária), CX (caixa), CV (carteira
+        virtual), CR (cartão) ou AC (administradora de cartões) — o mesmo domínio do
+        campo `tipo` em listar_bancos.
+
+        A tabela tem 13 registros e cabe numa página; a API do OMIE é somente
+        leitura para ela.
+        """
+        client = ctx.request_context.lifespan_context["omie"]
+        return await client.call(
+            "geral/tipocc/",
+            "ListarTiposCC",
+            {"pagina": 1, "registros_por_pagina": 50},
+            lista_vazia_ok=True,
+        )
 
     @mcp.tool()
     async def listar_contas_correntes(
@@ -18,6 +41,7 @@ def register(mcp: FastMCP) -> None:
             "geral/contacorrente/",
             "ListarResumoContasCorrentes",
             {"pagina": pagina, "registros_por_pagina": registros_por_pagina},
+            lista_vazia_ok=True,
         )
 
     @mcp.tool()
@@ -47,8 +71,15 @@ def register(mcp: FastMCP) -> None:
         """
         Consulta o extrato bancário de uma conta corrente em um período.
         Retorna todos os lançamentos e o saldo do período.
+        Informe codigo_conta_corrente ou codigo_integracao_conta — o OMIE exige um deles.
+        Use listar_contas_correntes para descobrir o código (nCodCC).
         """
         client = ctx.request_context.lifespan_context["omie"]
+        if not codigo_conta_corrente and not codigo_integracao_conta:
+            raise ValueError(
+                "Informe codigo_conta_corrente ou codigo_integracao_conta. "
+                "Use listar_contas_correntes para obter o código."
+            )
         params: dict = {
             "dPeriodoInicial": data_inicio,
             "dPeriodoFinal": data_fim,

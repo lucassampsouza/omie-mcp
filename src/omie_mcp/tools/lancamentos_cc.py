@@ -35,7 +35,9 @@ def register(mcp: FastMCP) -> None:
             params["dDtIncDe"] = data_inclusao_de
         if data_inclusao_ate:
             params["dDtIncAte"] = data_inclusao_ate
-        return await client.call("financas/contacorrentelancamentos/", "ListarLancCC", params)
+        return await client.call(
+            "financas/contacorrentelancamentos/", "ListarLancCC", params, lista_vazia_ok=True
+        )
 
     @mcp.tool()
     async def consultar_lancamento_bancario(

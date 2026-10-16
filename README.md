@@ -11,6 +11,8 @@ Converse com o Claude e peça coisas como:
 - *"Mostre o extrato bancário da conta corrente de março"*
 - *"Qual o fluxo de caixa previsto vs realizado em fevereiro?"*
 - *"Cadastre um novo fornecedor com CNPJ 12.345.678/0001-99"*
+- *"Crie uma categoria de despesa para 'Assinaturas de Software' ligada ao DRE"*
+- *"Qual o código do tipo de documento de boleto?"*
 
 ---
 
@@ -18,14 +20,18 @@ Converse com o Claude e peça coisas como:
 
 | Módulo | Ferramentas |
 |---|---|
-| **Fornecedores** | Listar, consultar, cadastrar e alterar fornecedores |
+| **Fornecedores** | Listar, consultar, cadastrar, alterar e upsert por CNPJ/CPF |
 | **Contas a Pagar** | Listar, consultar, incluir, lançar pagamento, cancelar e excluir |
 | **Contas a Receber** | Listar, consultar, incluir, lançar recebimento, cancelar e excluir |
 | **Lançamentos Bancários** | Listar, consultar, incluir e excluir transações em conta corrente |
-| **Contas Correntes** | Listar contas, consultar detalhes e extrato bancário por período |
+| **Contas Correntes** | Listar contas, consultar detalhes, extrato bancário por período e tipos de conta |
 | **Fluxo de Caixa** | Previsto vs realizado, resumo financeiro, títulos em aberto e pesquisa unificada |
+| **Categorias** | Listar, consultar, incluir e alterar categorias e grupos totalizadores |
+| **Contas do DRE** | Listar a estrutura do DRE e as contas vinculáveis a categorias |
+| **Tipos de Documento** | Pesquisar por descrição e consultar por código |
+| **Bancos** | Listar e consultar instituições financeiras e seus recursos de integração |
 
-**Total: 27 ferramentas MCP**
+**Total: 42 ferramentas MCP**
 
 ---
 
@@ -204,15 +210,78 @@ chmod +x ~/omie-mcp-run.sh
 | `listar_contas_correntes` | Lista todas as contas bancárias cadastradas no OMIE |
 | `consultar_conta_corrente` | Consulta detalhes de uma conta corrente específica |
 | `consultar_extrato_bancario` | Extrato completo de uma conta em um período |
+| `listar_tipos_conta_corrente` | Tipos aceitos no cadastro de conta corrente (CC, CP, CR, CX…) |
 
 ### Fluxo de Caixa
 
 | Ferramenta | Descrição |
 |---|---|
 | `consultar_fluxo_caixa` | Previsto vs realizado por categoria em um mês |
-| `obter_resumo_financeiro` | Resumo consolidado do período |
-| `listar_titulos_em_aberto` | Lista todos os títulos não liquidados |
-| `pesquisar_lancamentos_financeiros` | Pesquisa unificada (pagar + receber + bancário) |
+| `obter_resumo_financeiro` | Resumo consolidado numa data de referência |
+| `listar_titulos_em_aberto` | Títulos não liquidados (a pagar **ou** a receber) |
+| `pesquisar_lancamentos_financeiros` | Pesquisa unificada (contas a pagar + a receber) |
+
+### Categorias
+
+| Ferramenta | Descrição |
+|---|---|
+| `listar_categorias` | Lista o plano de categorias, com filtros por tipo (R/D) e descrição |
+| `consultar_categoria` | Consulta uma categoria pelo código, com a conta do DRE vinculada |
+| `listar_grupos_categoria` | Grupos totalizadores — os valores válidos para `categoria_superior` |
+| `listar_tipos_categoria` | Tipos de categoria — os valores válidos para `tipo_categoria` |
+| `incluir_categoria` | Cria uma categoria dentro de um grupo totalizador |
+| `alterar_categoria` | Altera ou inativa uma categoria existente |
+| `incluir_grupo_categoria` | Cria um grupo totalizador de receita ou despesa |
+| `alterar_grupo_categoria` | Altera a descrição/natureza de um grupo |
+
+### Contas do DRE
+
+| Ferramenta | Descrição |
+|---|---|
+| `listar_contas_dre` | Estrutura do DRE; com `apenas_vinculaveis` traz só as contas aceitas por uma categoria |
+
+### Tipos de Documento
+
+| Ferramenta | Descrição |
+|---|---|
+| `listar_tipos_documento` | Pesquisa por descrição (ignora acentos e maiúsculas) |
+| `consultar_tipo_documento` | Consulta um tipo pelo código exato (BOL, NF, ADI…) |
+
+### Bancos
+
+| Ferramenta | Descrição |
+|---|---|
+| `listar_bancos` | Lista instituições financeiras, com filtro por nome e tipo |
+| `consultar_banco` | Detalhes de integração do banco (PIX, extrato, CNAB, boletos) |
+
+---
+
+## 🔗 Como os cadastros de apoio se encaixam
+
+As categorias são a espinha dorsal da classificação financeira, e o OMIE valida os
+vínculos na inclusão. A ordem que funciona é:
+
+```
+listar_grupos_categoria   → escolhe categoria_superior (ex: 2.01)
+listar_tipos_categoria    → escolhe tipo_categoria com cTipo compatível
+                            (grupo 1.xx → R, grupo 2.xx → P)
+listar_contas_dre         → escolhe codigo_dre entre as contas vinculáveis
+                            (apenas_vinculaveis=True)
+incluir_categoria         → cria a categoria já classificada no DRE
+```
+
+Categorias, tipos de documento, bancos e tipos de conta corrente são justamente os
+códigos consumidos ao lançar contas a pagar, contas a receber e lançamentos
+bancários — consulte-os antes de criar um lançamento em vez de adivinhar códigos.
+
+> **Somente leitura:** a API do OMIE não expõe inclusão, alteração nem exclusão para
+> contas do DRE, tipos de documento, bancos e tipos de conta corrente — essas tabelas
+> são mantidas pelo ERP. Categoria também não tem exclusão: use
+> `alterar_categoria` com `inativar=True`.
+
+> **Consumo redundante:** o OMIE bloqueia por ~40 segundos a repetição de uma chamada
+> idêntica (mesmo método e mesmos parâmetros), respondendo
+> `Consumo redundante detectado`. Varie os filtros ou aguarde a janela.
 
 ---
 
@@ -229,7 +298,11 @@ omie-mcp/
 │       ├── contas_receber.py
 │       ├── lancamentos_cc.py
 │       ├── contas_correntes.py
-│       └── fluxo_caixa.py
+│       ├── fluxo_caixa.py
+│       ├── categorias.py
+│       ├── dre.py
+│       ├── tipos_documento.py
+│       └── bancos.py
 ├── .env.example           # Modelo de variáveis de ambiente
 ├── pyproject.toml
 └── README.md

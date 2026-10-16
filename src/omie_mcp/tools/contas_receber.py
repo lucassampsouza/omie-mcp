@@ -2,6 +2,7 @@
 
 from typing import Annotated, Optional
 from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
 
 
 def register(mcp: FastMCP) -> None:
@@ -15,10 +16,28 @@ def register(mcp: FastMCP) -> None:
             Optional[str],
             "Status: CANCELADO | RECEBIDO | LIQUIDADO | EMABERTO | RECEB_PARCIAL | ATRASADO | AVENCER",
         ] = None,
-        filtrar_por_data_de: Annotated[Optional[str], "Data de vencimento inicial (dd/mm/aaaa)"] = None,
-        filtrar_por_data_ate: Annotated[Optional[str], "Data de vencimento final (dd/mm/aaaa)"] = None,
-        filtrar_por_emissao_de: Annotated[Optional[str], "Data de emissão inicial (dd/mm/aaaa)"] = None,
-        filtrar_por_emissao_ate: Annotated[Optional[str], "Data de emissão final (dd/mm/aaaa)"] = None,
+        # Estes filtros usam Field(description=...) — uma str simples dentro de
+        # Annotated é ignorada pelo pydantic e não chega ao schema da tool.
+        filtrar_por_data_de: Annotated[
+            Optional[str],
+            Field(
+                description="Data de alteração inicial (dd/mm/aaaa) — filtra pela data "
+                "de alteração do registro (info.dAlt), NÃO pelo vencimento"
+            ),
+        ] = None,
+        filtrar_por_data_ate: Annotated[
+            Optional[str],
+            Field(
+                description="Data de alteração final (dd/mm/aaaa) — filtra pela data "
+                "de alteração do registro (info.dAlt), NÃO pelo vencimento"
+            ),
+        ] = None,
+        filtrar_por_emissao_de: Annotated[
+            Optional[str], Field(description="Data de emissão inicial (dd/mm/aaaa)")
+        ] = None,
+        filtrar_por_emissao_ate: Annotated[
+            Optional[str], Field(description="Data de emissão final (dd/mm/aaaa)")
+        ] = None,
         filtrar_cliente: Annotated[Optional[int], "Código OMIE do cliente"] = None,
         filtrar_conta_corrente: Annotated[Optional[int], "Código da conta corrente"] = None,
         filtrar_apenas_titulos_em_aberto: Annotated[str, "Apenas títulos em aberto: S ou N"] = "N",
@@ -28,7 +47,16 @@ def register(mcp: FastMCP) -> None:
         ] = "DATA_VENCIMENTO",
         ordem_descrescente: Annotated[str, "Ordem decrescente: S ou N"] = "N",
     ) -> dict:
-        """Lista contas a receber com filtros de status, período e cliente."""
+        """
+        Lista contas a receber com filtros de status, cliente e período.
+
+        Cuidado com o período: [filtrar_por_data_de/ate] recorta pela data de
+        ALTERAÇÃO do registro (info.dAlt), não pelo vencimento. Para recortar
+        competência, use [filtrar_por_emissao_de/ate].
+
+        A API do OMIE não expõe filtro por data de vencimento nesta chamada —
+        para recortar por vencimento, filtre [data_vencimento] no resultado.
+        """
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {
             "pagina": pagina,
@@ -51,7 +79,9 @@ def register(mcp: FastMCP) -> None:
             params["filtrar_cliente"] = filtrar_cliente
         if filtrar_conta_corrente:
             params["filtrar_conta_corrente"] = filtrar_conta_corrente
-        return await client.call("financas/contareceber/", "ListarContasReceber", params)
+        return await client.call(
+            "financas/contareceber/", "ListarContasReceber", params, lista_vazia_ok=True
+        )
 
     @mcp.tool()
     async def consultar_conta_receber(
@@ -137,8 +167,10 @@ def register(mcp: FastMCP) -> None:
             "multa": multa,
             "conciliar_documento": conciliar_documento,
         }
+        # A baixa identifica o título por [codigo_lancamento], não por
+        # [codigo_lancamento_omie] (esse é o nome usado só nos métodos de chave).
         if codigo_lancamento_omie:
-            params["codigo_lancamento_omie"] = codigo_lancamento_omie
+            params["codigo_lancamento"] = codigo_lancamento_omie
         if codigo_lancamento_integracao:
             params["codigo_lancamento_integracao"] = codigo_lancamento_integracao
         if observacao:
@@ -148,16 +180,19 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool()
     async def cancelar_recebimento(
         ctx: Context,
-        codigo_lancamento_omie: Annotated[Optional[int], "Código do lançamento no OMIE"] = None,
-        codigo_lancamento_integracao: Annotated[Optional[str], "Código de integração do lançamento"] = None,
+        codigo_baixa: Annotated[Optional[int], "Código da baixa/recebimento no OMIE"] = None,
+        codigo_baixa_integracao: Annotated[Optional[str], "Código de integração da baixa"] = None,
     ) -> dict:
-        """Cancela/estorna o recebimento de uma conta a receber, revertendo a baixa."""
+        """
+        Cancela/estorna o recebimento de uma conta a receber, revertendo a baixa.
+        Identifica a baixa (retornada por lancar_recebimento), não o título.
+        """
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {}
-        if codigo_lancamento_omie:
-            params["codigo_lancamento_omie"] = codigo_lancamento_omie
-        if codigo_lancamento_integracao:
-            params["codigo_lancamento_integracao"] = codigo_lancamento_integracao
+        if codigo_baixa:
+            params["codigo_baixa"] = codigo_baixa
+        if codigo_baixa_integracao:
+            params["codigo_baixa_integracao"] = codigo_baixa_integracao
         return await client.call("financas/contareceber/", "CancelarRecebimento", params)
 
     @mcp.tool()
@@ -169,8 +204,10 @@ def register(mcp: FastMCP) -> None:
         """Exclui uma conta a receber do OMIE (apenas títulos em aberto)."""
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {}
+        # ExcluirContaReceber usa [chave_lancamento] — diferente de
+        # ConsultarContaReceber, que usa [codigo_lancamento_omie].
         if codigo_lancamento_omie:
-            params["codigo_lancamento_omie"] = codigo_lancamento_omie
+            params["chave_lancamento"] = codigo_lancamento_omie
         if codigo_lancamento_integracao:
             params["codigo_lancamento_integracao"] = codigo_lancamento_integracao
         return await client.call("financas/contareceber/", "ExcluirContaReceber", params)

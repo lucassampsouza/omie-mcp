@@ -38,23 +38,26 @@ def register(mcp: FastMCP) -> None:
         params: dict = {
             "pagina": pagina,
             "registros_por_pagina": registros_por_pagina,
-            "apenas_fornecedor": apenas_fornecedor,
             "apenas_importado_api": apenas_importado_api,
             "exibir_caracteristicas": exibir_caracteristicas,
             "exibir_obs": exibir_obs,
         }
-        clientes_filtro = {}
+        filtro: dict = {}
+        # No OMIE não existe flag de fornecedor no cadastro: a distinção é feita
+        # pela tag "Fornecedor" aplicada ao cliente.
+        if apenas_fornecedor == "S":
+            filtro["tags"] = [{"tag": "Fornecedor"}]
         if filtrar_por_nome:
-            clientes_filtro["razao_social"] = filtrar_por_nome
+            filtro["razao_social"] = filtrar_por_nome
         if filtrar_por_cnpj:
-            clientes_filtro["cnpj_cpf"] = filtrar_por_cnpj
+            filtro["cnpj_cpf"] = filtrar_por_cnpj
         if filtrar_por_codigo_omie:
-            clientes_filtro["codigo_cliente_omie"] = filtrar_por_codigo_omie
+            filtro["codigo_cliente_omie"] = filtrar_por_codigo_omie
         if filtrar_por_codigo_integracao:
-            clientes_filtro["codigo_cliente_integracao"] = filtrar_por_codigo_integracao
-        if clientes_filtro:
-            params["clientesFiltro"] = clientes_filtro
-        return await client.call("geral/clientes/", "ListarClientes", params)
+            filtro["codigo_cliente_integracao"] = filtrar_por_codigo_integracao
+        if filtro:
+            params["clientesFiltro"] = filtro
+        return await client.call("geral/clientes/", "ListarClientes", params, lista_vazia_ok=True)
 
     @mcp.tool()
     async def consultar_fornecedor(
