@@ -20,7 +20,7 @@ Converse com o Claude e peça coisas como:
 
 | Módulo | Ferramentas |
 |---|---|
-| **Fornecedores** | Listar, consultar, cadastrar e alterar fornecedores |
+| **Fornecedores** | Listar, consultar, cadastrar, alterar e upsert por CNPJ/CPF |
 | **Contas a Pagar** | Listar, consultar, incluir, lançar pagamento, cancelar e excluir |
 | **Contas a Receber** | Listar, consultar, incluir, lançar recebimento, cancelar e excluir |
 | **Lançamentos Bancários** | Listar, consultar, incluir e excluir transações em conta corrente |
@@ -31,7 +31,7 @@ Converse com o Claude e peça coisas como:
 | **Tipos de Documento** | Pesquisar por descrição e consultar por código |
 | **Bancos** | Listar e consultar instituições financeiras e seus recursos de integração |
 
-**Total: 41 ferramentas MCP**
+**Total: 42 ferramentas MCP**
 
 ---
 
@@ -166,10 +166,11 @@ chmod +x ~/omie-mcp-run.sh
 
 | Ferramenta | Descrição |
 |---|---|
-| `listar_fornecedores` | Lista fornecedores com filtros por nome ou CNPJ |
+| `listar_fornecedores` | Lista fornecedores com filtros por nome, CNPJ, código OMIE ou integração |
 | `consultar_fornecedor` | Consulta detalhes de um fornecedor pelo código ou CNPJ |
-| `incluir_fornecedor` | Cadastra um novo fornecedor |
+| `incluir_fornecedor` | Cadastra um novo fornecedor, incluindo dados fiscais, contato e bancários |
 | `alterar_fornecedor` | Atualiza dados de um fornecedor existente |
+| `upsert_fornecedor` | Cadastra ou atualiza um fornecedor pelo CNPJ/CPF |
 
 ### Contas a Pagar
 
