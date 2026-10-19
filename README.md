@@ -172,6 +172,11 @@ chmod +x ~/omie-mcp-run.sh
 | `alterar_fornecedor` | Atualiza dados de um fornecedor existente |
 | `upsert_fornecedor` | Cadastra ou atualiza um fornecedor pelo CNPJ/CPF |
 
+> O OMIE não tem um campo que marque o cadastro como fornecedor: o que identifica
+> um fornecedor é a tag `Fornecedor`. `incluir_fornecedor` e `upsert_fornecedor`
+> aplicam essa tag sempre, e `alterar_fornecedor` a mantém quando recebe `tags`,
+> para que o cadastro continue aparecendo em `listar_fornecedores`.
+
 ### Contas a Pagar
 
 | Ferramenta | Descrição |

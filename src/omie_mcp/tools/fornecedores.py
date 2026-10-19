@@ -17,6 +17,20 @@ def _parse_tags(tags: str | None) -> list[dict[str, str]] | None:
     return parsed_tags or None
 
 
+# No OMIE não existe flag de fornecedor no cadastro: a distinção é feita pela
+# tag "Fornecedor", que é o que listar_fornecedores filtra.
+TAG_FORNECEDOR = "Fornecedor"
+
+
+def _tags_fornecedor(tags: str | None) -> list[dict[str, str]]:
+    """Tags informadas, sempre incluindo a tag "Fornecedor" (sem duplicar)."""
+    outras = [
+        t for t in _parse_tags(tags) or []
+        if t["tag"].casefold() != TAG_FORNECEDOR.casefold()
+    ]
+    return [{"tag": TAG_FORNECEDOR}, *outras]
+
+
 def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
@@ -43,10 +57,8 @@ def register(mcp: FastMCP) -> None:
             "exibir_obs": exibir_obs,
         }
         filtro: dict = {}
-        # No OMIE não existe flag de fornecedor no cadastro: a distinção é feita
-        # pela tag "Fornecedor" aplicada ao cliente.
         if apenas_fornecedor == "S":
-            filtro["tags"] = [{"tag": "Fornecedor"}]
+            filtro["tags"] = [{"tag": TAG_FORNECEDOR}]
         if filtrar_por_nome:
             filtro["razao_social"] = filtrar_por_nome
         if filtrar_por_cnpj:
@@ -105,14 +117,14 @@ def register(mcp: FastMCP) -> None:
         dados_bancarios_conta_corrente: Annotated[Optional[str], "Conta corrente do fornecedor"] = None,
         dados_bancarios_chave_pix: Annotated[Optional[str], "Chave PIX do fornecedor"] = None,
         codigo_cliente_integracao: Annotated[Optional[str], "Código de integração próprio"] = None,
-        tags: Annotated[Optional[str], "Tags separadas por vírgula (ex: fornecedor,prioritario)"] = None,
+        tags: Annotated[Optional[str], "Tags adicionais separadas por vírgula (a tag Fornecedor é sempre incluída)"] = None,
     ) -> dict:
         """Cadastra um novo fornecedor no OMIE."""
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {
             "razao_social": razao_social,
             "cnpj_cpf": cnpj_cpf,
-            "fornecedor": "S",
+            "tags": _tags_fornecedor(tags),
         }
         _add_optional_fields(params, [
             ("email", email),
@@ -151,9 +163,6 @@ def register(mcp: FastMCP) -> None:
             dados_bancarios_chave_pix,
         ]):
             params["dadosBancarios"] = dados_bancarios
-        parsed_tags = _parse_tags(tags)
-        if parsed_tags:
-            params["tags"] = parsed_tags
         return await client.call("geral/clientes/", "IncluirCliente", params)
 
     @mcp.tool()
@@ -179,7 +188,7 @@ def register(mcp: FastMCP) -> None:
         optante_simples_nacional: Annotated[Optional[str], "Optante pelo Simples Nacional: S ou N"] = None,
         contribuinte: Annotated[Optional[str], "Contribuinte de ICMS: S ou N"] = None,
         observacao: Annotated[Optional[str], "Observações internas"] = None,
-        tags: Annotated[Optional[str], "Tags separadas por vírgula"] = None,
+        tags: Annotated[Optional[str], "Tags separadas por vírgula (a tag Fornecedor é mantida)"] = None,
     ) -> dict:
         """Altera dados de um fornecedor existente no OMIE."""
         client = ctx.request_context.lifespan_context["omie"]
@@ -208,9 +217,10 @@ def register(mcp: FastMCP) -> None:
             ("contribuinte", contribuinte),
             ("observacao", observacao),
         ])
-        parsed_tags = _parse_tags(tags)
-        if parsed_tags:
-            params["tags"] = parsed_tags
+        # Se a lista de tags for enviada, mantém a tag "Fornecedor" nela para o
+        # cadastro não sumir de listar_fornecedores.
+        if tags:
+            params["tags"] = _tags_fornecedor(tags)
         return await client.call("geral/clientes/", "AlterarCliente", params)
 
     @mcp.tool()
@@ -230,14 +240,14 @@ def register(mcp: FastMCP) -> None:
         estado: Annotated[Optional[str], "UF (ex: SP)"] = None,
         cep: Annotated[Optional[str], "CEP"] = None,
         observacao: Annotated[Optional[str], "Observações internas"] = None,
-        tags: Annotated[Optional[str], "Tags separadas por vírgula"] = None,
+        tags: Annotated[Optional[str], "Tags adicionais separadas por vírgula (a tag Fornecedor é sempre incluída)"] = None,
     ) -> dict:
         """Inclui ou atualiza fornecedor pelo CNPJ/CPF no OMIE."""
         client = ctx.request_context.lifespan_context["omie"]
         params: dict = {
             "razao_social": razao_social,
             "cnpj_cpf": cnpj_cpf,
-            "fornecedor": "S",
+            "tags": _tags_fornecedor(tags),
         }
         _add_optional_fields(params, [
             ("email", email),
@@ -253,7 +263,4 @@ def register(mcp: FastMCP) -> None:
             ("cep", cep),
             ("observacao", observacao),
         ])
-        parsed_tags = _parse_tags(tags)
-        if parsed_tags:
-            params["tags"] = parsed_tags
         return await client.call("geral/clientes/", "UpsertClienteCpfCnpj", params)
